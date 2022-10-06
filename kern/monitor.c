@@ -60,30 +60,21 @@ mon_infokern(int argc, char **argv, struct Trapframe *tf)
 int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
-
   // TODO Your code here.
-
     cprintf("Stack backtrace:\n");
     int c = 0;
 
+    uint32_t a_ebp = read_ebp();
+    while (a_ebp){
+      uint32_t* arg = (uint32_t*) a_ebp;
+      uint32_t eip = arg[1];
+      cprintf("  ebp %08x  eip %08x  args %08x %08x %08x %08x %08x\n", arg, eip, arg[2], arg[3], arg[4], arg[5], arg[6]);
 
-    uint32_t address = read_ebp();
-    while (address){
-      uint32_t* p = (uint32_t*) address;
-      cprintf("  ebp %08x  eip %08x  args %08x %08x %08x %08x %08x\n", p, p[1], p[2], p[3], p[4], p[5], p[6]);
+      struct Eipdebuginfo info;
+      debuginfo_eip(eip, &info);
+      cprintf("        %s:%d: %.*s+%u\n", info.eip_file, info.eip_line, info.eip_fn_namelen, info.eip_fn_name, eip - info.eip_fn_addr);
 
-      /*struct Eipdebuginfo info = {0};
-      debuginfo_eip(address, &info);
-
-      cprintf("%s:%d: ", info.eip_file, info.eip_line);
-      if (info.eip_fn_namelen >= 0){
-
-      }
-      else {
-          cprintf("<unknown>");
-      }*/
-
-      address = *p;
+      a_ebp = *arg;
       c++;
   }
   // Your code here.
