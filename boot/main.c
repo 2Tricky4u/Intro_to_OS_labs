@@ -33,7 +33,7 @@
 #define ELFHDR          ((struct Elf *)0x10000)  // scratch space
 
 void readsect(void *, uint32_t);
-void readseg(uint32_t, uint32_t, uint32_t);
+void readseg(uint32_t, uint32_t, uint32_t); //(pa, count, offset) read count bytes at offset from kernel into physical address pa
 
 void
 bootmain(void)
@@ -48,15 +48,16 @@ bootmain(void)
     goto bad;
 
   // load each program segment (ignores ph flags)
-  ph = (struct Proghdr *)((uint8_t *)ELFHDR + ELFHDR->e_phoff);
-  eph = ph + ELFHDR->e_phnum;
+  ph = (struct Proghdr *)((uint8_t *)ELFHDR + ELFHDR->e_phoff); //e_phoff points to start of progamm header table
+  eph = ph + ELFHDR->e_phnum; // e_phnum is number of entries in program header table ---- each entries is 0x20 bytes
   for (; ph < eph; ph++)
     // p_pa is the load address of this segment (as well
     // as the physical address)
-    readseg(ph->p_pa, ph->p_memsz, ph->p_offset);
+    readseg(ph->p_pa, ph->p_memsz, ph->p_offset); //how many sectors it must read in order to fetch the entire kernel
 
   // call the entry point from the ELF header
   // note: does not return!
+	//first kernel instr will be in 0x10000c
   ((void (*)(void))(ELFHDR->e_entry))();
 
 bad:
