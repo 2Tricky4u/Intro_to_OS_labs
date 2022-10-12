@@ -58,14 +58,14 @@ entry:
 	movl	%eax, %cr3
 	# Turn on paging.
 	movl	%cr0, %eax
-	orl	$(CR0_PE|CR0_PG|CR0_WP), %eax
+	orl	$(CR0_PE|CR0_PG|CR0_WP), %eax #we set -protected mode enable-, -write protect- and -paging-
 	movl	%eax, %cr0
 
 	# Now paging is enabled, but we're still running at a low EIP
 	# (why is this okay?).  Jump up above KERNBASE before entering
 	# C code.
 	mov	$relocated, %eax
-	jmp	*%eax
+	jmp	*%eax #would fail if paging wasnt enable as eax = 0xfsomething
 relocated:
 
 	# Clear the frame pointer register (EBP)

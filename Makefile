@@ -203,8 +203,6 @@ grade:
 	  (echo "'make clean' failed.  HINT: Do you have another running instance of JOS?" && exit 1)
 	./grade-lab$(LAB) $(GRADEFLAGS)
 
-
-
 DIRS := boot fs inc kern lib user
 TAGS: always
 	ctags -e -R $(DIRS)
