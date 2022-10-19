@@ -53,6 +53,7 @@ i386_detect_memory(void)
 }
 
 
+
 // --------------------------------------------------------------
 // Set up memory mappings above UTOP.
 // --------------------------------------------------------------
@@ -96,10 +97,15 @@ boot_alloc(uint32_t n)
   // Allocate a chunk large enough to hold 'n' bytes, then update
   // nextfree.  Make sure nextfree is kept aligned
   // to a multiple of PGSIZE.
-  //
   // LAB 2: Your code here.
+  if(n == 0) return nextfree;
 
-  return NULL;
+  result = nextfree;
+  nextfree = ROUNDUP(nextfree + n, PGSIZE);
+  if ((uint32_t) nextfree >= KERNBASE + npages * PGSIZE) { // TODO maybe only >
+    panic("Not enough memory to boot allocate (oskour)");
+  }
+  return result;
 }
 
 // Set up a two-level page table:
@@ -118,20 +124,20 @@ mem_init(void)
   size_t n;
 
   // Find out how much memory the machine has (npages & npages_basemem).
-  i386_detect_memory();
-
+    i386_detect_memory();
   // Remove this line when you're ready to test this function.
-  panic("mem_init: This function is not finished\n");
+  //panic("mem_init: This function is not finished\n");
 
   //////////////////////////////////////////////////////////////////////
   // create initial page directory.
   kern_pgdir = (pde_t*)boot_alloc(PGSIZE);
+
   memset(kern_pgdir, 0, PGSIZE);
 
   //////////////////////////////////////////////////////////////////////
   // Recursively insert PD in itself as a page table, to form
   // a virtual page table at virtual address UVPT.
-  // (For now, you don't have understand the greater purpose of the
+  // (For now, you don't have to understand the greater purpose of the
   // following line.)
 
   // Permissions: kernel R, user R
@@ -144,6 +150,9 @@ mem_init(void)
   // array.  'npages' is the number of physical pages in memory.  Use memset
   // to initialize all fields of each struct PageInfo to 0.
   // Your code goes here:
+  size_t pages_size = sizeof(struct PageInfo) * npages;
+  pages = (struct PageInfo*) boot_alloc(pages_size);
+  memset(pages, 0, pages_size);
 
 
   //////////////////////////////////////////////////////////////////////
@@ -154,7 +163,11 @@ mem_init(void)
   // or page_insert
   page_init();
 
+
   check_page_free_list(1);
+
+  // TODO only up HERE !!!!!!!!
+
   check_page_alloc();
   check_page();
 
@@ -231,7 +244,7 @@ void
 page_init(void)
 {
   // The example code here marks all physical pages as free.
-  // However this is not truly the case.  What memory is free?
+  // However, this is not truly the case.  What memory is free?
   //  1) Mark physical page 0 as in use.
   //     This way we preserve the real-mode IDT and BIOS structures
   //     in case we ever need them.  (Currently we don't, but...)
@@ -247,12 +260,39 @@ page_init(void)
   // Change the code to reflect this.
   // NB: DO NOT actually touch the physical memory corresponding to
   // free pages!
+
+  //1
+  pages[0].pp_ref = 1;
+  //2
   size_t i;
-  for (i = 0; i < npages; i++) {
+  for (i = 1; i < npages_basemem; ++i) {
     pages[i].pp_ref = 0;
     pages[i].pp_link = page_free_list;
     page_free_list = &pages[i];
   }
+  //3
+  /*for(i = IOPHYSMEM/PGSIZE; i < EXTPHYSMEM/PGSIZE; ++i) {
+    pages[i].pp_ref = 1;
+  }*/
+  //4
+  // !!!!!  Kernel  !!!!!!
+  //for (i = EXTPHYSMEM/PGSIZE; i < PADDR(kern_pgdir)/PGSIZE; ++i) {
+  //  pages[i].pp_ref = 0;
+  //  pages[i].pp_link = page_free_list;
+  //  page_free_list = &pages[i];
+  //}
+
+  /*for (; i < PADDR(boot_alloc(0))/PGSIZE; ++i) {
+    pages[i].pp_ref = 1;
+  }*/
+
+  for (PADDR(boot_alloc(0))/PGSIZE; i < npages; ++i){
+    pages[i].pp_ref = 0;
+    pages[i].pp_link = page_free_list;
+    page_free_list = &pages[i];
+  }
+
+
 }
 
 //
@@ -271,7 +311,21 @@ struct PageInfo *
 page_alloc(int alloc_flags)
 {
   // Fill this function in
-  return NULL;
+
+  // If no more pages available, return NULL
+  if (!page_free_list) return NULL;
+  struct PageInfo* allocatedPage = page_free_list;
+  page_free_list = page_free_list->pp_link;
+  allocatedPage->pp_link = NULL;
+
+  // Fill the page with 0's
+  if (alloc_flags & ALLOC_ZERO) {
+    // page2kva takes a page info and returns the corresponding kernel virtual address
+    char *kv_allocated_page = (char *) page2kva(allocatedPage);
+    memset(kv_allocated_page, 0, PGSIZE);
+  }
+
+  return allocatedPage;
 }
 
 //
@@ -284,6 +338,12 @@ page_free(struct PageInfo *pp)
   // Fill this function in
   // Hint: You may want to panic if pp->pp_ref is nonzero or
   // pp->pp_link is not NULL.
+
+  if (!pp || pp->pp_ref || pp->pp_link) panic("Trying to free used page!");
+
+  // pp becomes the first element of the linked list
+  pp->pp_link = page_free_list;
+  page_free_list = pp;
 }
 
 //
@@ -444,7 +504,6 @@ check_page_free_list(bool only_low_memory)
 
   if (!page_free_list)
     panic("'page_free_list' is a null pointer!");
-
   if (only_low_memory) {
     // Move pages with lower addresses first in the free
     // list, since entry_pgdir does not map all pages.

@@ -64,7 +64,9 @@ QEMU := $(shell if which qemu > /dev/null; \
 endif
 
 # try to generate a unique GDB port
-GDBPORT	:= $(shell expr `id -u` % 5000 + 25000)
+# TODO need to switch to pass grading
+ GDBPORT	:= $(shell expr `id -u` % 5000 + 25000)
+# GDBPORT	:= $(shell expr `date +%N` % 5000 + 25000)
 
 CC	:= $(GCCPREFIX)gcc -pipe #-std=gnu11
 AS	:= $(GCCPREFIX)as
