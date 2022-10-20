@@ -382,8 +382,53 @@ page_decref(struct PageInfo* pp)
 pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
-  // Fill this function in
-  return NULL;
+  // 1.
+  // Find corresponding page dir
+  pde_t pgdire = pgdir[PDX(va)];
+  pte_t* pgt= (pte_t *) PTE_ADDR(pgdire);
+
+  if (pgdire & PTE_P) { //If PDE exist
+    pte_t pte = pgt[PTX(va)];
+
+    // physaddr_t pa_ppn = PTE_ADDR(pte);
+
+    //if (!(pte & PTE_P)) { //If PTE doesn't exist
+    //  if(!create) return NULL;
+//
+    //  struct PageInfo* page_info_ptr = page_alloc(ALLOC_ZERO);
+    //  if (!page_info_ptr) return NULL;
+    //  page_info_ptr->pp_ref++;
+//
+    //  pa_ppn = page2pa(page_info_ptr);
+//
+    //  // set the new page ref in the page table
+    //  pgt[PTX(va)] = pa_ppn | PTE_P | PTE_W | PTE_U;
+    //}
+
+    return (pte_t *) PTE_ADDR(pte);//(pa_ppn | PGOFF(va));
+  }
+
+  if (!create) return NULL;
+
+  // Allocate new page table
+  struct PageInfo* page_info_pte_ptr = page_alloc(ALLOC_ZERO);
+  if (!page_info_pte_ptr) return NULL;
+  page_info_pte_ptr->pp_ref++;
+  pte_t pte = page2pa(page_info_pte_ptr);
+  // Store newly created page table into page directory
+  pgdir[PDX(va)] = pte | PTE_P | PTE_W;
+  // Allocating new user page table
+  //struct PageInfo* page_info_ptr = page_alloc(ALLOC_ZERO);
+  //if (!page_info_ptr) return NULL;
+  //page_info_ptr->pp_ref++;
+//
+  //physaddr_t pa_ppn = page2pa(page_info_ptr);
+//
+  //// Store newly allocated user page table into page table
+  //pgt = (pte_t *) pte;
+  //pgt[PTX(va)] = pa_ppn | PTE_P | PTE_W | PTE_U;
+
+  return (pte_t *) pte;//(pa_ppn | PGOFF(va));
 }
 
 //
@@ -400,7 +445,17 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 static void
 boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
-  // Fill this function in
+  if(size%PGSIZE) panic("Invalid size for boot_map_region.");
+  if(va%PGSIZE) panic("Invalide va passed to boot_map_region - not page aligned.");
+  if(pa%PGSIZE) panic("Invalide pa passed to boot_map_region - not page aligned.");
+
+  int i;
+  for (i = 0; i < size >> PGSHIFT; ++i) {
+    pte_t * pte = pgdir_walk(pgdir, (uintptr_t *)(va + i * PGSIZE), true);
+    if(!pte) panic("Page table allocation failed");
+    *pte = (pa + i * PGSIZE) | perm | PTE_P;
+  }
+
 }
 
 //
@@ -431,7 +486,23 @@ boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm
 int
 page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 {
-  // Fill this function in
+  pte_t* pte = pgdir_walk(pgdir, va, true);
+  if(!pte) return -E_NO_MEM;
+
+  if(PTE_ADDR(*pte) == page2pa(pp)) {
+    if(!((*pte ^ (perm | PTE_P)) << 20)) {
+      *pte = (*pte >> PGSHIFT) << PGSHIFT | perm | PTE_P;
+      //tlb_invalidate(pgdir, va);
+    }
+    return 0;
+  }
+  if (*pte & PTE_P) {
+    page_remove(pgdir, va);
+  }
+
+  *pte = page2pa(pp) | perm | PTE_P;
+  pp->pp_ref++;
+
   return 0;
 }
 
@@ -449,8 +520,15 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 struct PageInfo *
 page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 {
-  // Fill this function in
-  return NULL;
+  pte_t* pageTableEntry_ptr = pgdir_walk(pgdir, va, false);
+  if (!pageTableEntry_ptr) return NULL;
+
+  if (pte_store) *pte_store = pageTableEntry_ptr;
+
+  // TODO see if correct
+  //physaddr_t pa = PTE_ADDR(pageTableEntry_ptr) | PGOFF(va);
+  //return pa2page(pa);
+  return pa2page(PTE_ADDR(pageTableEntry_ptr));
 }
 
 //
@@ -471,7 +549,12 @@ page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 void
 page_remove(pde_t *pgdir, void *va)
 {
-  // Fill this function in
+  pte_t * pte = NULL;
+  struct PageInfo *pageInfo = page_lookup(pgdir, va, &pte);
+  if (!pageInfo) return;
+  page_decref(pageInfo);
+  *pte = 0;
+  tlb_invalidate(pgdir, va);
 }
 
 //
