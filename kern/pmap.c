@@ -165,9 +165,6 @@ mem_init(void)
 
 
   check_page_free_list(1);
-
-  // TODO only up HERE !!!!!!!!
-
   check_page_alloc();
   check_page();
 
@@ -181,7 +178,7 @@ mem_init(void)
   //      (ie. perm = PTE_U | PTE_P)
   //    - pages itself -- kernel RW, user NONE
   // Your code goes here:
-
+  boot_map_region(kern_pgdir, UPAGES, PTSIZE, PADDR(pages), PTE_U);
   //////////////////////////////////////////////////////////////////////
   // Use the physical memory that 'bootstack' refers to as the kernel
   // stack.  The kernel stack grows down from virtual address KSTACKTOP.
@@ -193,7 +190,7 @@ mem_init(void)
   //       overwrite memory.  Known as a "guard page".
   //     Permissions: kernel RW, user NONE
   // Your code goes here:
-
+  boot_map_region(kern_pgdir, KSTACKTOP - KSTKSIZE, KSTKSIZE, PADDR(bootstack), PTE_W);
   //////////////////////////////////////////////////////////////////////
   // Map all of physical memory at KERNBASE.
   // Ie.  the VA range [KERNBASE, 2^32) should map to
@@ -202,8 +199,8 @@ mem_init(void)
   // we just set up the mapping anyway.
   // Permissions: kernel RW, user NONE
   // Your code goes here:
-
-  // Check that the initial page directory has been set up correctly.
+  boot_map_region(kern_pgdir, KERNBASE, 0x100000000LL - KERNBASE, 0, PTE_W);
+  // Check that the initial page directory has been set up correctly. 
   check_kern_pgdir();
 
   // Switch from the minimal entry page directory to the full kern_pgdir
@@ -271,6 +268,9 @@ page_init(void)
     page_free_list = &pages[i];
   }
   //3
+  // Should not do anything as if we don't link the page that should not be used, it will never be free and
+  // thus never used to allocate new pages.
+
   /*for(i = IOPHYSMEM/PGSIZE; i < EXTPHYSMEM/PGSIZE; ++i) {
     pages[i].pp_ref = 1;
   }*/
@@ -705,7 +705,7 @@ check_kern_pgdir(void)
 
   // check kernel stack
   for (i = 0; i < KSTKSIZE; i += PGSIZE)
-    assert(check_va2pa(pgdir, KSTACKTOP - KSTKSIZE + i) == PADDR(bootstack) + i);
+    assert(check_va2pa(pgdir, KSTACKTOP - KSTKSIZE + i) == PADDR( bootstack) + i);
   assert(check_va2pa(pgdir, KSTACKTOP - PTSIZE) == ~0);
 
   // check PDE permissions
