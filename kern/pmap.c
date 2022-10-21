@@ -460,19 +460,17 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
   pte_t* pte = pgdir_walk(pgdir, va, true);
   if(!pte) return -E_NO_MEM;
 
-  if(PTE_ADDR(*pte) == page2pa(pp)) {
-    if(!((*pte ^ (perm | PTE_P)) << 20)) {
-      *pte = (*pte >> PGSHIFT) << PGSHIFT | perm | PTE_P;
-      //tlb_invalidate(pgdir, va);
-    }
-    return 0;
-  }
+  physaddr_t pa = page2pa(pp);
 
-  if (*pte & PTE_P) {
-    page_remove(pgdir, va);
-  }
-  
-  *pte = page2pa(pp) | perm | PTE_P;
+  if (PTE_ADDR(*pte) != page2pa(pp)) {
+    if (*pte & PTE_P) {
+      page_remove(pgdir, va);
+    }
+  } else pp->pp_ref--;
+
+  tlb_invalidate(pgdir, va);
+
+  *pte = pa | perm | PTE_P;
   pp->pp_ref++;
 
   return 0;
