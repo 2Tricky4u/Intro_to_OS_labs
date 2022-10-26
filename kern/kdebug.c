@@ -19,7 +19,6 @@ struct UserStabData {
   const char *stabstr_end;
 };
 
-
 // stab_binsearch(stabs, region_left, region_right, type, addr)
 //
 //	Some stab types are arranged in increasing order by instruction
@@ -150,6 +149,7 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 
     // Make sure the STABS and string table memory is valid.
     // LAB 3: Your code here.
+
   }
 
   // String table validity checks
@@ -204,6 +204,12 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
   //	Look at the STABS documentation and <inc/stab.h> to find
   //	which one.
   // LAB 1: Your code here.
+
+  stab_binsearch(stabs, &lline, &rline, N_SLINE, addr);
+  if (rline > lline) return -1;
+
+  //N_SLINE found
+  info->eip_line = stabs[rline].n_desc;
 
 
   // Search backwards from the line number for the relevant filename

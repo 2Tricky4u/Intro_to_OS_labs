@@ -8,11 +8,13 @@
 
 #include <inc/memlayout.h>
 #include <inc/assert.h>
+
 struct Env;
 
 extern char bootstacktop[], bootstack[];
 
-extern struct PageInfo *pages;
+extern struct PageInfo *pages; // linked list representing free pages
+
 extern size_t npages;
 
 extern pde_t *kern_pgdir;
