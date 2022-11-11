@@ -171,7 +171,8 @@ env_setup_vm(struct Env *e)
 
   // Allocate a page for the page directory
   p = page_alloc(ALLOC_ZERO);
-  if (!p) return -E_NO_MEM;
+  if (!p)
+    return -E_NO_MEM;
 
   // Now, set e->env_pgdir and initialize the page directory.
   //
@@ -280,19 +281,6 @@ region_alloc(struct Env *e, void *va, size_t len)
   //   'va' and 'len' values that are not page-aligned.
   //   You should round va down, and round (va + len) up.
   //   (Watch out for corner-cases!)
-  if(!len) return;
-  if (!e) panic("Trying to map a null environment to a va!");
-  uint32_t* start_va = ROUNDDOWN(va, PGSIZE);
-  uint32_t* end_va = ROUNDUP(va + len, PGSIZE);
-  size_t nb_of_pages = (end_va - start_va) * sizeof(uint32_t)/PGSIZE;
-
-  int i;
-  for (i = 0; i < nb_of_pages; ++i) {
-    struct PageInfo* new_page = page_alloc(ALLOC_ZERO);
-    if (!new_page) panic("Not enough memory to allocate new page for env!");
-    int err = page_insert(e->env_pgdir, new_page, start_va + i * PGSIZE/sizeof(uint32_t) , PTE_W | PTE_U);
-    if(err) panic("Page table couldn't be allocated in region alloc for env!");
-  }
 }
 
 //
@@ -354,28 +342,6 @@ load_icode(struct Env *e, uint8_t *binary)
   // at virtual address USTACKTOP - PGSIZE.
 
   // LAB 3: Your code here.
-  struct Proghdr *ph, *eph;
-  struct Elf* elf = (struct Elf*) binary;
-
-  // is this a valid ELF?
-  if (elf->e_magic != ELF_MAGIC) panic("Trying to read an elf file which is not an elf!");
-  lcr3(PADDR(e->env_pgdir));
-  // load each program segment (ignores ph flags)
-  ph = (struct Proghdr *)(binary + elf->e_phoff); //e_phoff points to start of progamm header table
-  eph = ph + elf->e_phnum; // e_phnum is number of entries in program header table ---- each entries is 0x20 bytes
-  for (; ph < eph; ph++) {
-    if (ph->p_type == ELF_PROG_LOAD) {
-      region_alloc(e, (void *) ph->p_va, ph->p_memsz);
-      if (ph->p_filesz > ph->p_memsz) panic("filez bigger than memsz in load_icode");
-    }
-
-    memset((void *) ph->p_va, 0, ph->p_memsz);
-    memcpy((void *) ph->p_va, binary + ph->p_offset, ph->p_filesz);
-  }
-
-  region_alloc(e, (void *)USTACKTOP - PGSIZE, PGSIZE); //Allocate stack
-  e->env_tf.tf_eip = elf->e_entry;
-  lcr3(PADDR(kern_pgdir));
 }
 
 //
@@ -389,11 +355,6 @@ void
 env_create(uint8_t *binary, enum EnvType type)
 {
   // LAB 3: Your code here.
-  struct Env* env = NULL;
-  if (env_alloc(&env, 0) != 0) panic("Allocation of environnement failed in env_create");
-  env->env_type = type;
-  load_icode(env, binary);
-
 }
 
 //
@@ -508,16 +469,7 @@ env_run(struct Env *e)
   //	e->env_tf to sensible values.
 
   // LAB 3: Your code here.
-  if (!e) panic("panic");
-  if(e != curenv) { //If context switch
-    if(curenv) {
-      if (curenv->env_status == ENV_RUNNING) curenv->env_status == ENV_RUNNABLE;
-    }
-    curenv = e;
-    curenv->env_status = ENV_RUNNING;
-    curenv->env_runs++;
-    lcr3(PADDR(curenv->env_pgdir));
-  }
-  //TODO demander si à chaque call de env_run on push tf
-  env_pop_tf(&curenv->env_tf);
+
+  panic("env_run not yet implemented");
 }
+
