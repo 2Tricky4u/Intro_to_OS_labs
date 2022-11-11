@@ -580,11 +580,24 @@ static uintptr_t user_mem_check_addr;
 // and -E_FAULT otherwise.
 //
 int
-user_mem_check(struct Env *env, const void *va, size_t len, int perm)
-{
+user_mem_check(struct Env *env, const void *va, size_t len, int perm) {
   // LAB 3: Your code here.
-
+  uint32_t addr = (uint32_t)ROUNDDOWN( va, PGSIZE);
+  uint32_t end = (uint32_t) ROUNDUP(va+len, PGSIZE);
+  for (; addr < end; addr += PGSIZE) {
+    if (addr < ULIM) {
+      pte_t *pte;
+      struct PageInfo *page_info = page_lookup(env->env_pgdir, (void *) addr, &pte);
+      if (!page_info || !(*pte & perm) || !(*pte & PTE_P)) goto bad;
+    } else goto bad;
+  }
   return 0;
+  bad:
+  if (addr < (uint32_t)va)
+    user_mem_check_addr = (uint32_t) va;
+  else
+    user_mem_check_addr = addr;
+  return -E_FAULT;
 }
 
 //
