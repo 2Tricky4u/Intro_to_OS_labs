@@ -196,7 +196,7 @@ trap_dispatch(struct Trapframe *tf)
 
     case T_SYSCALL: {
       struct PushRegs regs = tf->tf_regs;
-      syscall(regs.reg_eax, regs.reg_edx, regs.reg_ecx, regs.reg_ebx, regs.reg_edi, regs.reg_esi);
+      tf->tf_regs.reg_eax = syscall(regs.reg_eax, regs.reg_edx, regs.reg_ecx, regs.reg_ebx, regs.reg_edi, regs.reg_esi);
       return;
     }
     default:
@@ -254,7 +254,6 @@ void
 page_fault_handler(struct Trapframe *tf)
 {
   uint32_t fault_va;
-
 
   // Read processor's CR2 register to find the faulting address
   fault_va = rcr2();
