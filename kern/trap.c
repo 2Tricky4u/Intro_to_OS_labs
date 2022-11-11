@@ -84,6 +84,7 @@ trap_init(void)
   extern void (alignement_check)();
   extern void (machine_check)();
   extern void (simd_fp_exception)();
+  extern void (system_call)();
 
   // LAB 3: Your code here.
   SETGATE(idt[T_DIVIDE], 1, GD_KT, divide_by_zero, 0);
@@ -104,6 +105,7 @@ trap_init(void)
   SETGATE(idt[T_ALIGN], 1, GD_KT, alignement_check, 0);
   SETGATE(idt[T_MCHK], 0, GD_KT, machine_check, 0);
   SETGATE(idt[T_SIMDERR], 1, GD_KT, simd_fp_exception, 0);
+  SETGATE(idt[T_SYSCALL], 1, GD_KT, system_call, 3);
   // Per-CPU setup
   trap_init_percpu();
 }
@@ -181,22 +183,31 @@ trap_dispatch(struct Trapframe *tf)
 {
   // Handle processor exceptions.
   // LAB 3: Your code here.
-  //if (!tf) return;
-  //switch (tf->tf_trapno){
-  //  case
-//
-//
-  //}
+  if (!tf) return;
 
+  switch (tf->tf_trapno) {
+    case T_PGFLT:
+      page_fault_handler(tf);
+      return;
 
+    case T_BRKPT:
+      monitor(tf);
+      return;
 
-  // Unexpected trap: The user process or the kernel has a bug.
-  print_trapframe(tf);
-  if (tf->tf_cs == GD_KT)
-    panic("unhandled trap in kernel");
-  else {
-    env_destroy(curenv);
-    return;
+    case T_SYSCALL: {
+      struct PushRegs regs = tf->tf_regs;
+      syscall(regs.reg_eax, regs.reg_edx, regs.reg_ecx, regs.reg_ebx, regs.reg_edi, regs.reg_esi);
+      return;
+    }
+    default:
+      // Unexpected trap: The user process or the kernel has a bug.
+      print_trapframe(tf);
+      if (tf->tf_cs == GD_KT)
+        panic("unhandled trap in kernel");
+      else {
+        env_destroy(curenv);
+        return;
+      }
   }
 }
 
