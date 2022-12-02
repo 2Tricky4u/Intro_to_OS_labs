@@ -552,5 +552,6 @@ env_run(struct Env *e)
     lcr3(PADDR(curenv->env_pgdir));
   }
   //TODO demander si à chaque call de env_run on push tf
+  unlock_kernel();
   env_pop_tf(&curenv->env_tf);
 }
