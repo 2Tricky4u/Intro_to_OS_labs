@@ -25,6 +25,7 @@ pgfault(struct UTrapframe *utf)
   //   (see <inc/memlayout.h>).
 
   // LAB 4: Your code here.
+  if (!(uvpt[(uint32_t)addr / PGSIZE] & PTE_COW) || !(err & FEC_WR)) panic("pgfault error");
 
   // Allocate a new page, map it at a temporary location (PFTEMP),
   // copy the data from the old page to the new page, then move the new
@@ -34,7 +35,20 @@ pgfault(struct UTrapframe *utf)
 
   // LAB 4: Your code here.
 
-  panic("pgfault not implemented");
+  //alloc new page at a temporary location
+  if (sys_page_alloc(0, PFTEMP, PTE_P | PTE_U | PTE_W)) panic("pgfault error");
+
+  //copy the content of the old page to the new page
+  addr = ROUNDDOWN(addr, PGSIZE);
+  memcpy(PFTEMP, addr, PGSIZE);
+
+  //move the new page to the old page's address
+  if (sys_page_map(0, PFTEMP, 0, addr, PTE_P | PTE_U | PTE_W)) panic("pgfault error");
+
+  //unmap the temporary page. we now have a writable page
+  if (sys_page_unmap(0, PFTEMP)) panic("pgfault error");
+
+  //panic("pgfault not implemented");
 }
 
 //
@@ -54,7 +68,18 @@ duppage(envid_t envid, unsigned pn)
   int r;
 
   // LAB 4: Your code here.
-  panic("duppage not implemented");
+  void* page_addr = (void*) (pn * PGSIZE);
+
+  if ((*(uvpt + pn)) & (PTE_W || PTE_COW)){
+    //Make both pages (in the parent and the child envs) copy on write
+    if (sys_page_map(0, page_addr, envid, page_addr, PTE_P | PTE_U | PTE_COW)) panic("duppage error");
+    if (sys_page_map(0, page_addr, 0, page_addr, PTE_P | PTE_U | PTE_COW)) panic("duppage error");
+  } else {
+    //If the page is read only, child envs will naturally point to the same page
+    if (sys_page_map(0, page_addr, envid, page_addr, PTE_P | PTE_U)) panic("duppage error");
+  }
+
+  //panic("duppage not implemented");
   return 0;
 }
 
@@ -78,7 +103,44 @@ envid_t
 fork(void)
 {
   // LAB 4: Your code here.
-  panic("fork not implemented");
+
+  // Set up our page fault handler appropriately
+  set_pgfault_handler(pgfault);
+
+  // Create a child and handles errors
+  envid_t envID = sys_exofork();
+  if (envID < 0) panic("Could not create child");
+
+  // Copy our address space and page fault handler setup to the child
+  if (envID == 0){
+    //we're in the child env: we need to fix "thisenv"
+    envid_t childID = sys_getenvid();
+    uint32_t index = ENVX(childID);
+    thisenv = envs + index;
+  } else {
+    //we're in the parent env, we need to copy our address space and page fault handler setup to the child
+    unsigned pn;
+    for (pn = 0; pn < USTACKTOP / PGSIZE; pn++) {
+      //only call "duppage" for accessible pages
+      unsigned pgdir_index = PDX(pn * PGSIZE);
+      if (!(uvpd[pgdir_index] & PTE_P)) continue;
+      if (!(uvpt[pn] & (PTE_P | PTE_U))) continue;
+
+      duppage(envID, pn);
+    }
+
+    //allocate page for the exception stack in the child env
+    if (sys_page_alloc(envID, (void *)(UXSTACKTOP - PGSIZE), PTE_P | PTE_U | PTE_W)) panic("Fork error");
+
+    //setup page fault handler in the child env
+    if (sys_env_set_pgfault_upcall(envID, thisenv->env_pgfault_upcall)) panic("Fork error");
+
+    //mark the child as runnable
+    if (sys_env_set_status(envID, ENV_RUNNABLE)) panic("Fork error");
+  }
+
+  return envID;
+  //panic("fork not implemented");
 }
 
 // Challenge!
