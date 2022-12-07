@@ -92,6 +92,23 @@ trap_init(void)
   extern void (machine_check)();
   extern void (simd_fp_exception)();
   extern void (system_call)();
+  extern void (irq_timer)();
+  extern void (irq_kbd)();
+  extern void (irq_casq)();
+  extern void (irq_COMp2or4)();
+  extern void (irq_COMp1or3)();
+  extern void (irq_paraSound)();
+  extern void (irq_floppy)();
+  extern void (irq_parap1)();
+  extern void (irq_rtimeclock)();
+  extern void (irq_video)();
+  extern void (irq_open)();
+  extern void (irq_open2)();
+  extern void (irq_ps2mouse)();
+  extern void (irq_copro)();
+  extern void (irq_IDE)();
+  extern void (irq_IDE2)();
+  extern void (irq_error)();
 
   // LAB 3: Your code here.
   SETGATE(idt[T_DIVIDE], 1, GD_KT, divide_by_zero, 0);
@@ -113,6 +130,25 @@ trap_init(void)
   SETGATE(idt[T_MCHK], 0, GD_KT, machine_check, 0);
   SETGATE(idt[T_SIMDERR], 1, GD_KT, simd_fp_exception, 0);
   SETGATE(idt[T_SYSCALL], 1, GD_KT, system_call, 3);
+
+  //Interrupts
+  SETGATE(idt[IRQ_OFFSET],0 ,GD_KT,irq_timer, 0);
+  SETGATE(idt[IRQ_OFFSET + 1], 0, GD_KT, irq_kbd, 0);
+  SETGATE(idt[IRQ_OFFSET + 2], 0, GD_KT, irq_casq, 0);
+  SETGATE(idt[IRQ_OFFSET + 3], 0, GD_KT, irq_COMp2or4, 0);
+  SETGATE(idt[IRQ_OFFSET + 4], 0, GD_KT, irq_COMp1or3, 0);
+  SETGATE(idt[IRQ_OFFSET + 5], 0, GD_KT, irq_paraSound, 0);
+  SETGATE(idt[IRQ_OFFSET + 6], 0, GD_KT, irq_floppy, 0);
+  SETGATE(idt[IRQ_OFFSET + 7], 0, GD_KT, irq_parap1, 0);
+  SETGATE(idt[IRQ_OFFSET + 8], 0, GD_KT, irq_rtimeclock, 0);
+  SETGATE(idt[IRQ_OFFSET + 9], 0, GD_KT, irq_video, 0);
+  SETGATE(idt[IRQ_OFFSET + 10], 0, GD_KT, irq_open, 0);
+  SETGATE(idt[IRQ_OFFSET + 11], 0, GD_KT, irq_open2, 0);
+  SETGATE(idt[IRQ_OFFSET + 12], 0, GD_KT, irq_ps2mouse, 0);
+  SETGATE(idt[IRQ_OFFSET + 13], 0, GD_KT, irq_copro, 0);
+  SETGATE(idt[IRQ_OFFSET + 14], 0, GD_KT, irq_IDE, 0);
+  SETGATE(idt[IRQ_OFFSET + 15], 0, GD_KT, irq_IDE2, 0);
+  SETGATE(idt[IRQ_OFFSET + IRQ_ERROR], 0, GD_KT, irq_error, 0);
   // Per-CPU setup
   trap_init_percpu();
 }
@@ -239,6 +275,10 @@ trap_dispatch(struct Trapframe *tf)
       cprintf("Spurious interrupt on irq 7\n");
       print_trapframe(tf);
       return;
+    }
+    case IRQ_OFFSET + IRQ_TIMER: {
+      lapic_eoi();
+      sched_yield();
     }
     default:
       // Unexpected trap: The user process or the kernel has a bug.

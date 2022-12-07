@@ -70,7 +70,7 @@ duppage(envid_t envid, unsigned pn)
   // LAB 4: Your code here.
   void* page_addr = (void*) (pn * PGSIZE);
 
-  if ((*(uvpt + pn)) & (PTE_W || PTE_COW)){
+  if ((*(uvpt + pn)) & (PTE_W | PTE_COW)){
     //Make both pages (in the parent and the child envs) copy on write
     if (sys_page_map(0, page_addr, envid, page_addr, PTE_P | PTE_U | PTE_COW)) panic("duppage error");
     if (sys_page_map(0, page_addr, 0, page_addr, PTE_P | PTE_U | PTE_COW)) panic("duppage error");
