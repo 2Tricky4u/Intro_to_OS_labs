@@ -295,7 +295,6 @@ sys_page_unmap(envid_t envid, void *va)
 static int
 sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 {
-  
   // LAB 4: Your code here.
   //panic("sys_ipc_try_send not implemented");
   struct Env* env = NULL;
@@ -320,7 +319,7 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 
   env->env_status = ENV_RUNNABLE;
 
-  return 0;*/
+  return 0;
 }
 
 // Block until a value is ready.  Record that you want to receive
