@@ -295,8 +295,32 @@ sys_page_unmap(envid_t envid, void *va)
 static int
 sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 {
+  
   // LAB 4: Your code here.
-  panic("sys_ipc_try_send not implemented");
+  //panic("sys_ipc_try_send not implemented");
+  struct Env* env = NULL;
+  if (envid2env(envid, &env, 0)) return -E_BAD_ENV;
+  if(!env->env_ipc_recving) return -E_IPC_NOT_RECV;
+  if((uint32_t)srcva < UTOP && (uint32_t)srcva%PGSIZE) return -E_INVAL;
+
+  env->env_ipc_perm = 0;
+
+  if((uint32_t)srcva < UTOP) {
+    pte_t* mapped_page = NULL;
+    struct PageInfo* pageInfo = page_lookup(curenv->env_pgdir, srcva, &mapped_page);
+    if (!pageInfo) return -E_INVAL; // srcva is not mapped
+    if(!((*mapped_page & perm) & PTE_W)) return -E_INVAL;
+    int err = sys_page_alloc(envid, srcva, (int) perm);
+    if(err) return err;
+    env->env_ipc_perm = (int) perm;
+  }
+  env->env_ipc_recving = false;
+  env->env_ipc_value = value;
+  env->env_ipc_from = curenv->env_id;
+
+  env->env_status = ENV_RUNNABLE;
+
+  return 0;*/
 }
 
 // Block until a value is ready.  Record that you want to receive
@@ -314,8 +338,22 @@ static int
 sys_ipc_recv(void *dstva)
 {
   // LAB 4: Your code here.
-  panic("sys_ipc_recv not implemented");
-  return 0;
+
+  if((uint32_t)dstva < UTOP) {
+    if ((uint32_t)dstva % PGSIZE) return -E_INVAL;
+    curenv->env_ipc_dstva = dstva;
+  }
+
+  curenv->env_status == ENV_NOT_RUNNABLE; // remove this environment from the scheduling list
+  curenv->env_ipc_recving = true; // set that we want to receive
+
+
+  // because it should return 0 upon success, but as it never returns, we have to set it manually
+  curenv->env_tf.tf_regs.reg_eax = 0;
+
+  sched_yield();
+  // panic("sys_ipc_recv not implemented");
+  // return 0;
 }
 
 // Dispatches to the correct kernel function, passing the arguments.
@@ -364,8 +402,14 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
     case SYS_env_set_pgfault_upcall:
       return sys_env_set_pgfault_upcall((envid_t) a1, (void *) a2);
 
+    case SYS_ipc_recv:
+      return sys_ipc_recv((void *) a1);
+
+    case SYS_ipc_try_send:
+      return sys_ipc_try_send((envid_t)a1,(uint32_t) a2, (void*)a3, (unsigned) a4);
+
     default:
-    return -E_INVAL;
+      return -E_INVAL;
   }
 }
 
