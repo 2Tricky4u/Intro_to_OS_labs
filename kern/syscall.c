@@ -309,15 +309,18 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
     struct PageInfo* pageInfo = page_lookup(curenv->env_pgdir, srcva, &mapped_page);
     if (!pageInfo) return -E_INVAL; // srcva is not mapped
     if(!((*mapped_page & perm) & PTE_W)) return -E_INVAL;
-    int err = sys_page_alloc(envid, srcva, (int) perm);
-    if(err) return err;
-    env->env_ipc_perm = (int) perm;
+    if ((uint32_t)env->env_ipc_dstva < UTOP) {
+      int err = sys_page_alloc(envid, env->env_ipc_dstva, (int) perm);
+      if(err) return err;
+      env->env_ipc_perm = (int) perm;
+    }
+
   }
   env->env_ipc_recving = false;
   env->env_ipc_value = value;
   env->env_ipc_from = curenv->env_id;
-
   env->env_status = ENV_RUNNABLE;
+  env->env_tf.tf_regs.reg_eax = 0;
 
   return 0;
 }
@@ -343,12 +346,12 @@ sys_ipc_recv(void *dstva)
     curenv->env_ipc_dstva = dstva;
   }
 
-  curenv->env_status == ENV_NOT_RUNNABLE; // remove this environment from the scheduling list
   curenv->env_ipc_recving = true; // set that we want to receive
-
+  curenv->env_status = ENV_NOT_RUNNABLE; // remove this environment from the scheduling list
+  curenv->env_tf.tf_regs.reg_eax = 0;
 
   // because it should return 0 upon success, but as it never returns, we have to set it manually
-  curenv->env_tf.tf_regs.reg_eax = 0;
+  // curenv->env_tf.tf_regs.reg_eax = 0;
 
   sched_yield();
   // panic("sys_ipc_recv not implemented");
