@@ -34,7 +34,7 @@ sched_yield(void)
     if (env->env_status == ENV_RUNNABLE) env_run(env);
     env = envs + ((env - envs + 1) % NENV);
   } while (env != idle);
-  if (idle->env_status == ENV_RUNNING) env_run(idle);
+  if (thiscpu->cpu_env && thiscpu->cpu_env->env_status == ENV_RUNNING) env_run(idle);
 
   // sched_halt never returns
   sched_halt();
