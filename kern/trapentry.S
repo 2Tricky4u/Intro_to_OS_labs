@@ -47,10 +47,56 @@
 /*
  * Lab 3: Your code here for generating entry points for the different traps.
  */
-
-
+TRAPHANDLER_NOEC(divide_by_zero, T_DIVIDE); //fault
+TRAPHANDLER_NOEC(debug, T_DEBUG);//fault/trap
+TRAPHANDLER_NOEC(non_maskable_int, T_NMI); //interrupt
+TRAPHANDLER_NOEC(breakpoint_interrupt, T_BRKPT); //trap
+TRAPHANDLER_NOEC(overflow, T_OFLOW);//trap
+TRAPHANDLER_NOEC(bound_range_exceeded, T_BOUND);//fault
+TRAPHANDLER_NOEC(invalid_opcode, T_ILLOP);//fault
+TRAPHANDLER_NOEC(device_not_available, T_DEVICE);//fault
+TRAPHANDLER(double_fault, T_DBLFLT);//abort
+TRAPHANDLER(invalid_TSS, T_TSS); //fault
+TRAPHANDLER(segment_not_present, T_SEGNP); //fault
+TRAPHANDLER(stack_segment_fault, T_STACK); //fault
+TRAPHANDLER(general_protection_fault, T_GPFLT);//fault
+TRAPHANDLER(page_fault, T_PGFLT);//fault
+TRAPHANDLER_NOEC(floating_point_exception, T_FPERR);//fault
+TRAPHANDLER(alignement_check, T_ALIGN);//fault
+TRAPHANDLER_NOEC(machine_check, T_MCHK); //abort
+TRAPHANDLER_NOEC(simd_fp_exception, T_SIMDERR);//fault
+TRAPHANDLER_NOEC(system_call, T_SYSCALL);
+TRAPHANDLER_NOEC(irq_timer, IRQ_OFFSET + IRQ_TIMER);
+TRAPHANDLER_NOEC(irq_kbd, IRQ_OFFSET + 1);
+TRAPHANDLER_NOEC(irq_casq, IRQ_OFFSET + 2);
+TRAPHANDLER_NOEC(irq_COMp2or4, IRQ_OFFSET + 3);
+TRAPHANDLER_NOEC(irq_COMp1or3, IRQ_OFFSET + 4);
+TRAPHANDLER_NOEC(irq_paraSound, IRQ_OFFSET + 5);
+TRAPHANDLER_NOEC(irq_floppy, IRQ_OFFSET + 6);
+TRAPHANDLER_NOEC(irq_parap1, IRQ_OFFSET + 7);
+TRAPHANDLER_NOEC(irq_rtimeclock, IRQ_OFFSET + 8);
+TRAPHANDLER_NOEC(irq_video, IRQ_OFFSET + 9);
+TRAPHANDLER_NOEC(irq_open, IRQ_OFFSET + 10);
+TRAPHANDLER_NOEC(irq_open2, IRQ_OFFSET + 11);
+TRAPHANDLER_NOEC(irq_ps2mouse, IRQ_OFFSET + 12);
+TRAPHANDLER_NOEC(irq_copro, IRQ_OFFSET + 13);
+TRAPHANDLER_NOEC(irq_IDE, IRQ_OFFSET + 14);
+TRAPHANDLER_NOEC(irq_IDE2, IRQ_OFFSET + 15);
+TRAPHANDLER_NOEC(irq_error, IRQ_OFFSET + IRQ_ERROR);
 
 /*
  * Lab 3: Your code here for _alltraps
  */
+.globl _alltraps
 
+_alltraps:
+pushl %ds
+pushl %es
+/*pushl %fs
+pushl %gs only in xv6*/
+pushal
+movw $GD_KD, %ax
+movw %ax , %es
+movw %ax, %ds
+pushl %esp
+call trap
