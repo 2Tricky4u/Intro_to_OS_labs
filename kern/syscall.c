@@ -308,6 +308,7 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
     pte_t* mapped_page = NULL;
     struct PageInfo* pageInfo = page_lookup(curenv->env_pgdir, srcva, &mapped_page);
     if (!pageInfo) return -E_INVAL; // srcva is not mapped
+    if (perm & ~PTE_SYSCALL) return -E_INVAL;
     if(!((*mapped_page & perm) & PTE_W)) return -E_INVAL;
     if ((uint32_t)env->env_ipc_dstva < UTOP) {
       int err = page_insert(env->env_pgdir, pageInfo, env->env_ipc_dstva, (int) perm);
