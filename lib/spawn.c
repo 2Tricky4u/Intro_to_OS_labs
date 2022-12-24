@@ -302,6 +302,18 @@ static int
 copy_shared_pages(envid_t child)
 {
   // LAB 5: Your code here.
+
+  unsigned pn;
+  for (pn = 0; pn < USTACKTOP / PGSIZE; pn++) {
+    //only copy accessible pages
+    unsigned pgdir_index = PDX(pn * PGSIZE);
+    if (!(uvpd[pgdir_index] & PTE_P)) continue;
+    if (!(uvpt[pn] & (PTE_P | PTE_U))) continue;
+    if (!(uvpt[pn] & PTE_SHARE)) continue;
+
+    int r = sys_page_map(0, (void*)(pn * PGSIZE), child, (void*)(pn * PGSIZE), uvpt[pn] & PTE_SYSCALL);
+    if (r) return r;
+  }
   return 0;
 }
 
